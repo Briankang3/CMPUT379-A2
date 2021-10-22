@@ -1,10 +1,17 @@
 #include "lock.h"
-#include <cstdio>
 using namespace std;
 
 void* new_work(void* arg){
-    // when a producer  new work
+    // when a producer receives new work
     QUEUE* q=(QUEUE*)arg;
+    
+    // calculate elapsed time
+    extern begin;
+    auto end=chrono::high_resolution_clock::now();
+    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
+    cout<<elapsed<<'    ';
+
+
     // waits when it's full
     sem_wait(q->full);
 
@@ -21,6 +28,14 @@ void* new_work(void* arg){
 void* consume_work(void* arg){
     // when a thread starts running a work
     QUEUE* q=(QUEUE*)arg;
+
+    // calculate elapsed time
+    extern begin;
+    auto end=chrono::high_resolution_clock::now();
+    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
+    cout<<elapsed<<'    ';
+
+    
     // waits when it's empty
     sem_wait(q->empty);
 

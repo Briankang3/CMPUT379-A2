@@ -1,25 +1,27 @@
 #include <iostream>
 #include <string>
-#include <pthread.h>
-#include <queue>
 #include "lock.h"
 #include "given.h"
 using namespace std;
-
-QUEUE Queue;
 
 // Start measuring time
 auto begin=chrono::high_resolution_clock::now();
 
 void init(int N){
-    // initialize three semaphores
+    // initialize the semaphores of "Queue"
     if (sem_init(&Queue.mutex,0,1)!=0) perror("unable to initialize mutex");
     if (sem_init(&Queue.empty,0,0)!=0) perror("unable to initialize empty");
     if (sem_init(&Queue.full,0,N)!=0) perror("unable to initialize full");
 
+    // initialize the semaphores in "pool"
+    if (sem_init(&pool.empty,0,0)!=0) perror("unable to initilize empty");
+    if (sem_init(&pool.mutex,0,1)!=0) perror("unable to initilize mutex");
+
     // initialize "Q" and "count"
     for (int i=0;i<2*N;i++) Queue.Q.push_back(0);
     Queue.count=0;
+
+    pool.t_waiting=queue<int>();
 
     return;
 }
@@ -33,27 +35,45 @@ int main(int argc,char* argv[]){
     string input;
     while (cin>>input) cmd.push_back(input);
 
-    // create threads
+    // initialize the critical section
+    init(N);
+
+    // put N consumer threads into the waiting list
     pthread_t all_threads[N];
     for (int i=0;i<N;i++){
         pthread_t consumer_thread;
         all_threads[i]=consumer_thread;
-        Queue.t_waiting.push_back(i);
-        if (pthread_create(&consumer_thread,nullptr,&consume_work,&Queue)!=0) perror("fail to create a consumer thread");
+        pool.t_waiting.push(i);
+        sem_post(pool.empty);
     }
 
+    pthread_t producer_t;
+    // handle the inputs
     for (string& s:cmd){
         if (s[0]=='T'){
-            sem_wait(Queue.mutex);
-            Queue.Q.push_back(s[1]-'0');
-            count++;
-            sem_post(Queue.mutex);
+            // puts the new task to the queue
+            producer(&producer_t,s[1]-'0');
+            // find a thread to finish the task
+            consumer(all_threads);
         }
 
         else{
-            Sleep(s[1]-'0');
+            int n=s[1]-'0';
+            // calculate elapsed time
+            auto end=chrono::high_resolution_clock::now();
+            auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
+            cout<<elapsed<<'    '<<"ID=0    "<<"  "<<' '<<"sleep "<<n<<'\n';
+
+            Sleep(n);
         }
     }
+
+    // wait for the producer thread to finish
+    pthread_join(producer_t,nullptr);
+    // wait for all consumer threads to finish
+    for (int i=0;i<N;i++) pthread_join(all_threads[i],nullptr);
+
+
 
     return 0;
 }

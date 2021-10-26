@@ -22,7 +22,7 @@ void Trans(int n) {
 // Parameter given expresses wait time in hundreds of a nanosecond.
 
 void Sleep(int n) {
-	struct timespec sleep;
+	timespec sleep;
 
 	// Make sure pass a valid nanosecond time to nanosleep
 	if( n <= 0 || n >= 100 ) {

@@ -8,6 +8,8 @@ using namespace std;
 auto begin=chrono::high_resolution_clock::now();
 
 void init(int N){
+    if (sem_init(&io_lock,0,1)!=0) perror("unable to initialize io_lock");
+
     // initialize the semaphores of "Queue"
     if (sem_init(&Queue.mutex,0,1)!=0) perror("unable to initialize mutex");
     if (sem_init(&Queue.empty,0,0)!=0) perror("unable to initialize empty");
@@ -22,6 +24,8 @@ void init(int N){
     Queue.count=0;
 
     pool.t_waiting=queue<int>();
+
+    info.threads=vector<int>(N,0);
 
     return;
 }
@@ -44,7 +48,7 @@ int main(int argc,char* argv[]){
         pthread_t consumer_thread;
         all_threads[i]=consumer_thread;
         pool.t_waiting.push(i);
-        sem_post(pool.empty);
+        sem_post(&pool.empty);
     }
 
     pthread_t producer_t;
@@ -58,6 +62,8 @@ int main(int argc,char* argv[]){
         }
 
         else{
+            info.sleep++;
+
             int n=s[1]-'0';
             // calculate elapsed time
             auto end=chrono::high_resolution_clock::now();
@@ -73,7 +79,21 @@ int main(int argc,char* argv[]){
     // wait for all consumer threads to finish
     for (int i=0;i<N;i++) pthread_join(all_threads[i],nullptr);
 
+    // calculate elapsed time
+    auto end=chrono::high_resolution_clock::now();
+    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
 
+    // print out the summary 
+    cout<<"summary:\n";
+    cout<<"work:"<<info.work<<'\n';
+    cout<<"ask:"<<info.ask<<'\n';
+    cout<<"receive:"<<info.receive<<'\n';
+    cout<<"sleep:"<<info.sleep<<'\n';
+    // for each consumer thread
+    for (int i=0;i<N;i++){
+        cout<<"Thread "<<N<<":"<<info.threads[i]<<'\n';
+    }
+    cout<<"Transactions per second:"<<(float)info.complete/elapsed<<'\n';
 
     return 0;
 }

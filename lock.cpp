@@ -6,6 +6,7 @@ QUEUE Queue;
 POOL pool;
 INFO info;
 sem_t io_lock;
+sem_t producing;
 
 void* new_work(void* arg){
     // when a producer receives new work
@@ -14,25 +15,22 @@ void* new_work(void* arg){
 
     info.work++;
 
-    // calculate elapsed time
-    auto end=chrono::high_resolution_clock::now();
-    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
     // only one thread can access I/O stream simultaneously
     sem_wait(&io_lock);
-    cout<<elapsed<<'    '<<"ID=0    "<<"Q="<<Queue.count<<"work "<<n<<'\n';
+    cout<<"     "<<"ID=0    "<<"Q="<<Queue.count<<"   work "<<n<<'\n';
     sem_post(&io_lock);
 
     // waits when it's full
-    sem_wait(&Queue->full);
+    sem_wait(&Queue.full);
     // wait when the critical section is occupied
-    sem_wait(&Queue->mutex);     
+    sem_wait(&Queue.mutex);     
 
     // puts a job to "Q"
-    Queue.Q.push_back(n);
+    Queue.Q.push(n);
     Queue.count++;
 
-    sem_post(&Queue->mutex);
-    sem_post(&Queue->empty);
+    sem_post(&Queue.mutex);
+    sem_post(&Queue.empty);
 
     return nullptr;
 }
@@ -41,43 +39,39 @@ void* consume_work(void* arg){
     // when a thread starts running a work
     int* q=(int*)arg;
     int n=*q;
-    
+
     // waits when it's empty
-    sem_wait(&Queue->empty);
+    int m;
+    sem_wait(&Queue.empty);
     // wait when other threads are accessing the critical section
-    sem_wait(&Queue->mutex);
+    sem_wait(&Queue.mutex);
+
+    m=Queue.Q.front();
+    Queue.Q.pop();
+    Queue.count--;
+
+    sem_post(&Queue.mutex);
+    sem_post(&Queue.full);
 
     info.receive++;
-
-    // calculate elapsed time
-    auto end=chrono::high_resolution_clock::now();
-    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
-
     // access I/O stream
     sem_wait(&io_lock);
-    cout<<elapsed<<'    '<<"ID="<<n<<"    "<<"Q="<<Queue.count<<"receive "<<n<<'\n';
+    cout<<"     "<<"ID="<<n+1<<"    "<<"Q="<<Queue.count<<"   receive "<<m<<'\n';
     sem_post(&io_lock);
 
-    Trans(n);
+    Trans(m);
 
     // update "pool"
     sem_wait(&pool.mutex);
 
     pool.t_waiting.push(n);
-    sem_post(&pool.empty);
 
+    sem_post(&pool.empty);   
     sem_post(&pool.mutex);
 
-    sem_post(&Queue->mutex);
-    sem_post(&Queue->full);
-
-    info.complete++;
-    // calculate elapsed time
-    auto end=chrono::high_resolution_clock::now();
-    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
-    
     sem_wait(&io_lock);
-    cout<<elapsed<<'    '<<"ID="<<n<<"    "<<Queue.count<<"complete "<<n<<'\n';
+    info.complete++;
+    cout<<"     "<<"ID="<<n+1<<"    "<<Queue.count<<"   complete "<<m<<'\n';
     sem_post(&io_lock);
 
     return nullptr;
@@ -86,26 +80,24 @@ void* consume_work(void* arg){
 void consumer(pthread_t* consumer_t){
     // this function tries to run a task in the queue with an available consumer thread
     // if no consumer threads are available, it will wait
-    info.ask++;
-    // calculate elapsed time
-    auto end=chrono::high_resolution_clock::now();
-    auto elapsed=std::chrono::duration_cast<std::chrono::seconds>(end-begin);
-    // access I/O stream
-    sem_wait(&io_lock);
-    cout<<elapsed<<'    '<<"ID=0    "<<"Q="<<Queue.count<<"ask"<<'\n';
-    sem_wait(&io_lock);
-
     // waits when no consumer threads are available
+    int n;
+
     sem_wait(&pool.empty);
     // enters "pool"
     sem_wait(&pool.mutex);
     // acquire an available thread
-    int n=pool.t_waiting.front();
+    n=pool.t_waiting.front();
     pool.t_waiting.pop();
 
-    info.threads[n]++;
-
     sem_post(&pool.mutex);
+
+    info.ask++;
+    info.threads[n]++;
+    // access I/O stream
+    sem_wait(&io_lock);
+    cout<<"     "<<"ID="<<n+1<<"    "<<"Q="<<Queue.count<<"   ask"<<'\n';
+    sem_post(&io_lock);
 
     pthread_create(&consumer_t[n],nullptr,&consume_work,&n);
 
@@ -115,10 +107,10 @@ void consumer(pthread_t* consumer_t){
 void producer(pthread_t* producer_t,int n){
     // this function uses the only producer thread to put a new task on the queue
 
-    // wait for the running producer thread to finish
-    pthread_join(*producer_t);
-    // recycle the thread
+    sem_wait(&producing);
     pthread_create(producer_t,nullptr,&new_work,&n);
+    pthread_join(*producer_t,nullptr);
+    sem_post(&producing);
 
     return;
 }

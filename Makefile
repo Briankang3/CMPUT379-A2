@@ -7,5 +7,5 @@ main.o: main.cpp lock.h given.h
 given.o: given.cpp given.h
 	g++ -g -c given.cpp -std=c++2a
 
-lock.o: lock.h given.h
-	g++ -g -c -pthread -std=c++2a
+lock.o: lock.cpp lock.h given.h
+	g++ -g -c -pthread lock.cpp -std=c++2a

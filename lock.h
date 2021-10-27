@@ -10,13 +10,11 @@
 #include <queue>
 using namespace std;
 
-extern chrono::time_point<std::chrono::high_resolution_clock> begin;    // beginning time of the program
-
 struct QUEUE{
     sem_t mutex;     // Only one thread can access QUEUE simutaneously.
     sem_t full;      // blocks producer when the Q is full
     sem_t empty;     // blocks consumer when the Q is empty
-    vector<int> Q;   // "int" is the number of seconds for "transaction"
+    queue<int> Q;   // "int" is the number of seconds for "transaction"
     int count;       // the actual number of jobs available
 };
 
@@ -39,6 +37,7 @@ extern QUEUE Queue;
 extern POOL pool;
 extern INFO info;
 extern sem_t io_lock;      // one thread can access I/O stream simultaneouly
+extern sem_t producing;
 
 void* new_work(void* arg);   // this is the producer function
 void* consume_work(void* arg);   // this is the consumer function

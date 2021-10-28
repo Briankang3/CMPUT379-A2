@@ -13,7 +13,9 @@ void* new_work(void* arg){
     int* q=(int*)arg;
     int n=*q;
 
+    sem_wait(&info.wrt);
     info.work++;
+    sem_post(&info.wrt);
 
     // only one thread can access I/O stream simultaneously
     sem_wait(&io_lock);
@@ -38,7 +40,7 @@ void* new_work(void* arg){
 void* consume_work(void* arg){
     // when a thread starts running a work
     int* q=(int*)arg;
-    int n=*q;
+    int n=*q;           // WARNING: something might be wrong with this. Needs fixing before submission.
 
     // waits when it's empty
     int m;
@@ -53,7 +55,10 @@ void* consume_work(void* arg){
     sem_post(&Queue.mutex);
     sem_post(&Queue.full);
 
+    sem_wait(&info.wrt);
     info.receive++;
+    sem_post(&info.wrt);
+
     // access I/O stream
     sem_wait(&io_lock);
     cout<<"     "<<"ID="<<n+1<<"    "<<"Q="<<Queue.count<<"   receive "<<m<<'\n';
@@ -69,8 +74,11 @@ void* consume_work(void* arg){
     sem_post(&pool.empty);   
     sem_post(&pool.mutex);
 
-    sem_wait(&io_lock);
+    sem_wait(&info.wrt);
     info.complete++;
+    sem_post(&info.wrt);
+
+    sem_wait(&io_lock);
     cout<<"     "<<"ID="<<n+1<<"    "<<Queue.count<<"   complete "<<m<<'\n';
     sem_post(&io_lock);
 
@@ -89,11 +97,13 @@ void consumer(pthread_t* consumer_t){
     // acquire an available thread
     n=pool.t_waiting.front();
     pool.t_waiting.pop();
-
     sem_post(&pool.mutex);
 
+    sem_wait(&info.wrt);
     info.ask++;
     info.threads[n]++;
+    sem_post(&info.wrt);
+
     // access I/O stream
     sem_wait(&io_lock);
     cout<<"     "<<"ID="<<n+1<<"    "<<"Q="<<Queue.count<<"   ask"<<'\n';

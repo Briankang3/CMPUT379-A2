@@ -31,6 +31,7 @@ struct INFO{         // stores information of program execution
     int complete=0;
     int sleep=0;
     vector<int> threads;
+    sem_t wrt;       // synchronize writing to this structure
 };
 
 extern QUEUE Queue;

@@ -8,6 +8,7 @@ using namespace std;
 void init(int N){
     if (sem_init(&io_lock,0,1)!=0) perror("unable to initialize io_lock");
     if (sem_init(&producing,0,1)!=0) perror("unable to initialize producing");
+    if (sem_init(&info.wrt,0,1)!=0) perror("unable to initialize wrt");
 
     // initialize the semaphores of "Queue"
     if (sem_init(&Queue.mutex,0,1)!=0) perror("unable to initialize mutex");
@@ -62,7 +63,9 @@ int main(int argc,char* argv[]){
         }
 
         else{
+            sem_wait(&info.wrt);
             info.sleep++;
+            sem_post(&info.wrt);
 
             int n=s[1]-'0';
 
@@ -87,7 +90,7 @@ int main(int argc,char* argv[]){
     cout<<"sleep:"<<info.sleep<<'\n';
     // for each consumer thread
     for (int i=0;i<N;i++){
-        cout<<"Thread "<<N<<":"<<info.threads[i]<<'\n';
+        cout<<"Thread "<<i+1<<":"<<info.threads[i]<<'\n';
     }
     cout<<"Transactions per second:"<<'\n';
 

@@ -38,9 +38,11 @@ void* new_work(void* arg){
 }
 
 void* consume_work(void* arg){
-    // when a thread starts running a work
+    // when a thread starts running a work 
     int* q=(int*)arg;
     int n=*q;           // WARNING: something might be wrong with this. Needs fixing before submission.
+
+    cout<<"Test: n="<<n<<'\n';
 
     // waits when it's empty
     int m;

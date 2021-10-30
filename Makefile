@@ -1,11 +1,11 @@
 prodcon: main.o given.o lock.o
-	g++ -g -pthread main.o given.o lock.o -o prodcon
+	g++ -o -pthread main.o given.o lock.o -o prodcon
 
 main.o: main.cpp lock.h given.h
-	g++ -g -c -pthread main.cpp -std=c++2a
+	g++ -o -c -pthread main.cpp -std=c++2a
 
 given.o: given.cpp given.h
-	g++ -g -c given.cpp -std=c++2a
+	g++ -o -c given.cpp -std=c++2a
 
 lock.o: lock.cpp lock.h given.h
-	g++ -g -c -pthread lock.cpp -std=c++2a
+	g++ -o -c -pthread lock.cpp -std=c++2a

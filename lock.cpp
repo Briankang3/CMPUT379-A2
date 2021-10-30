@@ -3,7 +3,6 @@
 using namespace std;
 
 QUEUE Queue;
-POOL pool;
 INFO info;
 sem_t io_lock;
 sem_t producing;
@@ -40,80 +39,52 @@ void* new_work(void* arg){
 void* consume_work(void* arg){
     // when a thread starts running a work 
     int* q=(int*)arg;
-    int n=*q;           // WARNING: something might be wrong with this. Needs fixing before submission.
+    int n=*q;          
 
-    cout<<"Test: n="<<n<<'\n';
+    while (!done){
+        // now this process asks for work
+        sem_wait(&io_lock);
+        cout<<"     "<<"ID="<<n<<"    "<<"Q="<<Queue.count<<"   ask"<<'\n';
+        sem_post(&io_lock);
 
-    // waits when it's empty
-    int m;
-    sem_wait(&Queue.empty);
-    // wait when other threads are accessing the critical section
-    sem_wait(&Queue.mutex);
+        sem_wait(&info.wrt);
+        info.ask++;
+        sem_post(&info.wrt);
 
-    m=Queue.Q.front();
-    Queue.Q.pop();
-    Queue.count--;
+        // waits when it's empty
+        int m;
+        sem_wait(&Queue.empty);
+        // wait when other threads are accessing the critical section
+        sem_wait(&Queue.mutex);
 
-    sem_post(&Queue.mutex);
-    sem_post(&Queue.full);
+        m=Queue.Q.front();
+        Queue.Q.pop();
+        Queue.count--;
 
-    sem_wait(&info.wrt);
-    info.receive++;
-    sem_post(&info.wrt);
+        sem_post(&Queue.mutex);
+        sem_post(&Queue.full);
 
-    // access I/O stream
-    sem_wait(&io_lock);
-    cout<<"     "<<"ID="<<n+1<<"    "<<"Q="<<Queue.count<<"   receive "<<m<<'\n';
-    sem_post(&io_lock);
+        sem_wait(&info.wrt);
+        info.receive++;
+        sem_post(&info.wrt);
 
-    Trans(m);
+        // access I/O stream
+        sem_wait(&io_lock);
+        cout<<"     "<<"ID="<<n<<"    "<<"Q="<<Queue.count<<"   receive "<<m<<'\n';
+        sem_post(&io_lock);
 
-    // update "pool"
-    sem_wait(&pool.mutex);
+        Trans(m);
 
-    pool.t_waiting.push(n);
+        sem_wait(&info.wrt);
+        info.complete++;
+        sem_post(&info.wrt);
 
-    sem_post(&pool.empty);   
-    sem_post(&pool.mutex);
-
-    sem_wait(&info.wrt);
-    info.complete++;
-    sem_post(&info.wrt);
-
-    sem_wait(&io_lock);
-    cout<<"     "<<"ID="<<n+1<<"    "<<Queue.count<<"   complete "<<m<<'\n';
-    sem_post(&io_lock);
+        sem_wait(&io_lock);
+        cout<<"     "<<"ID="<<n<<"    "<<Queue.count<<"   complete "<<m<<'\n';
+        sem_post(&io_lock);
+    }
 
     return nullptr;
-}
-
-void consumer(pthread_t* consumer_t){
-    // this function tries to run a task in the queue with an available consumer thread
-    // if no consumer threads are available, it will wait
-    // waits when no consumer threads are available
-    int n;
-
-    sem_wait(&pool.empty);
-    // enters "pool"
-    sem_wait(&pool.mutex);
-    // acquire an available thread
-    n=pool.t_waiting.front();
-    pool.t_waiting.pop();
-    sem_post(&pool.mutex);
-
-    sem_wait(&info.wrt);
-    info.ask++;
-    info.threads[n]++;
-    sem_post(&info.wrt);
-
-    // access I/O stream
-    sem_wait(&io_lock);
-    cout<<"     "<<"ID="<<n+1<<"    "<<"Q="<<Queue.count<<"   ask"<<'\n';
-    sem_post(&io_lock);
-
-    pthread_create(&consumer_t[n],nullptr,&consume_work,&n);
-
-    return;
 }
 
 void producer(pthread_t* producer_t,int n){

@@ -18,7 +18,7 @@ void Trans(int n) {
 }
 
 
-// Sleep simulates pauses between transactions
+// Sleep simulates pauses between transactions.
 // Parameter given expresses wait time in hundreds of a nanosecond.
 
 void Sleep(int n) {

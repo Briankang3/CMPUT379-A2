@@ -41,7 +41,7 @@ void* consume_work(void* arg){
     int* q=(int*)arg;
     int n=*q;          
 
-    while (!done){
+    while (1){
         // now this process asks for work
         sem_wait(&io_lock);
         cout<<"     "<<"ID="<<n<<"    "<<"Q="<<Queue.count<<"   ask"<<'\n';
@@ -57,6 +57,14 @@ void* consume_work(void* arg){
         // wait when other threads are accessing the critical section
         sem_wait(&Queue.mutex);
 
+        if (Queue.Q.empty()){
+            sem_post(&Queue.mutex);
+            sem_post(&Queue.full);
+
+            continue;
+        }
+
+        finished[n-1]=false;
         m=Queue.Q.front();
         Queue.Q.pop();
         Queue.count--;
@@ -75,6 +83,8 @@ void* consume_work(void* arg){
 
         Trans(m);
 
+        finished[n-1]=true;
+
         sem_wait(&info.wrt);
         info.complete++;
         info.threads[n-1]++;
@@ -83,6 +93,21 @@ void* consume_work(void* arg){
         sem_wait(&io_lock);
         cout<<"     "<<"ID="<<n<<"    "<<Queue.count<<"   complete "<<m<<'\n';
         sem_post(&io_lock);
+
+        if (done){
+            sem_wait(&Queue.mutex);
+            bool empty=Queue.Q.empty();
+            sem_post(&Queue.mutex);
+
+            if (empty){
+                pthread_mutex_lock(&M);
+                signaled=true;
+                pthread_cond_signal(&END);
+                pthread_mutex_unlock(&M);
+
+                break;
+            }
+        }
     }
 
     return nullptr;

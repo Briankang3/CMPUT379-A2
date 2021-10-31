@@ -6,6 +6,10 @@
 using namespace std;
 
 bool done=false;
+bool signaled=false;
+pthread_cond_t END=PTHREAD_COND_INITIALIZER;
+pthread_mutex_t M=PTHREAD_MUTEX_INITIALIZER;
+vector<bool> finished;
 
 void init(int N){
     if (sem_init(&io_lock,0,1)!=0) perror("unable to initialize io_lock");
@@ -21,7 +25,10 @@ void init(int N){
     Queue.Q=queue<int>();
     Queue.count=0;
 
-    for (int i=0;i<N;i++) info.threads.push_back(0);
+    for (int i=0;i<N;i++){
+        info.threads.push_back(0);
+        finished.push_back(false);
+    }
 
     return;
 }
@@ -78,14 +85,41 @@ int main(int argc,char* argv[]){
 
     // wait for the producer thread to finish
     pthread_join(producer_t,nullptr);
+
     // wait for all consumer threads to finish
-    for (int i=0;i<N;i++) pthread_join(all_threads[i],nullptr);
+    pthread_mutex_lock(&M);
+
+    while (!signaled) pthread_cond_wait(&END,&M);    
+    pthread_mutex_unlock(&M);
+
+    // wait for consumer threads to finish their current task, then terminate
+    while (1){
+        bool terminate=true;
+        for (int i=0;i<N;i++){
+            if (finished[i]==false){
+                terminate=false;
+                break;
+            }
+
+            else pthread_cancel(all_threads[i]);
+        }
+
+        if (terminate) break;
+    }
+
+    sem_destroy(&io_lock);
+    sem_destroy(&info.wrt);
+    sem_destroy(&producing);
+    sem_destroy(&Queue.full);
+    sem_destroy(&Queue.empty);
+    sem_destroy(&Queue.mutex);
 
     // print out the summary 
     cout<<"summary:\n";
     cout<<"work:"<<info.work<<'\n';
     cout<<"ask:"<<info.ask<<'\n';
     cout<<"receive:"<<info.receive<<'\n';
+    cout<<"complete:"<<info.complete<<'\n';
     cout<<"sleep:"<<info.sleep<<'\n';
     // for each consumer thread
     for (int i=0;i<N;i++){

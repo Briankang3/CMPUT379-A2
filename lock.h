@@ -33,6 +33,10 @@ extern INFO info;
 extern sem_t io_lock;      // one thread can access I/O stream simultaneouly
 extern sem_t producing;
 extern bool done;
+extern bool signaled;
+extern pthread_cond_t END;
+extern pthread_mutex_t M;
+extern vector<bool> finished;
 
 void* new_work(void* arg);   // this is the producer function
 void* consume_work(void* arg);   // this is the consumer function

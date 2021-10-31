@@ -77,6 +77,7 @@ void* consume_work(void* arg){
 
         sem_wait(&info.wrt);
         info.complete++;
+        info.threads[n-1]++;
         sem_post(&info.wrt);
 
         sem_wait(&io_lock);

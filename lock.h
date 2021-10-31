@@ -4,10 +4,11 @@
 #include <semaphore.h>
 #include <vector>
 #include <cstdio>
-#include <chrono>
 #include <iostream>
 #include <pthread.h>
+#include <fstream>
 #include <queue>
+#include <chrono>
 using namespace std;
 
 struct QUEUE{
@@ -24,19 +25,21 @@ struct INFO{         // stores information of program execution
     int receive=0;
     int complete=0;
     int sleep=0;
-    vector<int> threads;
-    sem_t wrt;       // synchronize writing to this structure
+    vector<int> threads;   // the number of jobs each consumer thread has finished
+    sem_t wrt;       // allow one thread to access memory
 };
 
 extern QUEUE Queue;
 extern INFO info;
 extern sem_t io_lock;      // one thread can access I/O stream simultaneouly
-extern sem_t producing;
-extern bool done;
-extern bool signaled;
-extern pthread_cond_t END;
+extern sem_t producing;    // equavalently only one producer thread
+extern bool done;          // changes when the end of input file is reached
+extern bool signaled;      // for sending a signal from a consumer thread to the parent
+extern pthread_cond_t END; 
 extern pthread_mutex_t M;
 extern vector<bool> finished;
+extern fstream output;
+extern chrono::high_resolution_clock::time_point start;    // starting time
 
 void* new_work(void* arg);   // this is the producer function
 void* consume_work(void* arg);   // this is the consumer function
